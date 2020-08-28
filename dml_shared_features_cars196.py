@@ -99,18 +99,18 @@ import losses as losses
 class opt_class(object):
 
     def __init__(self):
-        self.dataset = 'cub200' # cars196   cub200
+        self.dataset = 'cars196' # cars196   cub200
         self.shared_norm = False
         self.lr = 0.00001
-        self.n_epochs = 150
+        self.n_epochs = 200
         self.kernels = 20 #8
         self.bs = 112
         self.samples_per_class = 4
-        self.seed = 1
+        self.seed = 23
         self.scheduler = 'step'
         self.gamma = 0.3
         self.decay = 0.0004
-        self.tau = [55, 80]  # [70, 90]
+        self.tau = [70, 90]
         self.classembed = 128
         self.class_loss = 'marginloss'
         self.class_sampling = 'distance'
@@ -151,9 +151,9 @@ class opt_class(object):
 
         self.adv_detach_target = False
         self.adv_dir = 'res_class' # class_res      res_class
-        self.disw = 2000 #500
+        self.disw = 500 #500
         self.num_cluster = 200
-        self.gpu = 8
+        self.gpu = 3
         self.savename = 'verify_old_code_280820' # 'cars_200_noise_adv_500_70_90_seed23_origAdvDir_epoch150New'
 
 
