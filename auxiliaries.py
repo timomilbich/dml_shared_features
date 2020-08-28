@@ -366,134 +366,134 @@ def set_logging(opt):
 
 
 
-################## GENERATE tSNE PLOTS #######################
-from sklearn.manifold import TSNE
-import matplotlib.pyplot as plt
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from sklearn.preprocessing import StandardScaler
-import cv2
-
-def plot_tSNE(opt, dataloader, model, feat='embed_class', type_data='trainval', n_samples=100, img_size= 45, perplex=40.0, img_zoom=0.7, epoch=0):
-
-    #Compute features
-    _ = model.eval()
-    with torch.no_grad():
-        features_res = list()
-        features_class = list()
-        final_iter  = tqdm(dataloader, desc='Computing Embeddings')
-        for idx,inp in enumerate(final_iter):
-            input_img = inp[-1]
-
-            if 'embed' in feat:
-                out = model(input_img.to(opt.device), feat='embed')
-                out_res = out[:,opt.classembed:]
-                out_class = out[:,:opt.classembed]
-            else:
-                raise Exception('feature type not supported!')
-
-            features_class.extend(out_class.cpu().detach().numpy().tolist())
-            features_res.extend(out_res.cpu().detach().numpy().tolist())
-
-        features_class = np.vstack(features_class).astype('float32')
-        features_res = np.vstack(features_res).astype('float32')
-
-    # choose subset
-    idx2use = np.random.choice(features_class.shape[0], size=n_samples, replace=False)
-    features_class_sub = features_class[idx2use, :]
-    features_res_sub = features_res[idx2use, :]
-
-    # prepare images
-    image_paths = np.array([x[0] for x in dataloader.dataset.image_list])
-    image_paths_sub = [image_paths[k] for k in idx2use]
-    image_labels = np.array([x[1] for x in dataloader.dataset.image_list])
-    image_labels_sub = [image_labels[k] for k in idx2use]
-
-    images = []
-    labels_unique = np.unique(image_labels_sub)
-    cmap = plt.cm.get_cmap('hsv', len(labels_unique))
-    top, bottom, left, right = [int(img_size * 0.05)] * 4
-    for path, label in zip(image_paths_sub, image_labels_sub):
-        image = cv2.imread(path, cv2.IMREAD_COLOR)
-        image = cv2.resize(image, (img_size, img_size))
-        c = cmap(np.where(labels_unique == label)[0][0])
-        image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)])
-
-        images.append(np.array(image))
-    images = np.array(images)
-
-    # plot
-    save_path_base = opt.save_path + '/tSNE/epoch_{}'.format(epoch)
-    if not os.path.isdir(save_path_base):
-        os.makedirs(save_path_base)
-
-    for p in perplex:
-        ### SCATTER PLOTS
-
-        # tsne class embedding
-        save_path = save_path_base + '/scatter_class_{}_p{}.svg'.format(type_data, int(p))
-        visualize_scatter(features_class, image_labels, p, save_path=save_path)
-
-        # tsne residual embedding
-        save_path = save_path_base + '/scatter_res_{}_p{}.svg'.format(type_data, int(p))
-        visualize_scatter(features_res, image_labels, p, save_path=save_path)
-
-
-        ### IMAGE PLOTS
-
-        # tsne class embedding
-        save_path = save_path_base + '/img_class_{}_p{}.svg'.format(type_data, int(p))
-        visualize_tsne_with_images(features_class_sub, p, images=images, image_zoom=img_zoom, save_path=save_path)
-
-        # tsne residual embedding
-        save_path = save_path_base + '/img_res_{}_p{}.svg'.format(type_data, int(p))
-        visualize_tsne_with_images(features_res_sub, p, images=images, image_zoom=img_zoom, save_path=save_path)
-
-
-def visualize_tsne_with_images(features, perplex, images, figsize=(30,30), image_zoom=1, save_path=None):
-    # compute tSNE
-    tsne = TSNE(n_components=2, perplexity=perplex)
-    tsne_result = tsne.fit_transform(features)
-
-    fig, ax = plt.subplots(figsize=figsize)
-    artists = []
-    for xy, i in zip(tsne_result, images):
-        x0, y0 = xy
-        img = OffsetImage(i, zoom=image_zoom)
-        ab = AnnotationBbox(img, (x0, y0), xycoords='data', frameon=False)
-        artists.append(ax.add_artist(ab))
-    ax.update_datalim(tsne_result)
-    ax.autoscale()
-    plt.show(False)
-
-    # save plot
-    fig.savefig(save_path, dpi=1000)
-    plt.close()
-
-
-def visualize_scatter(features, img_labels, perplex, figsize=(10,10), save_path=None):
-
-    # use subset
-    ids2use = np.random.choice(len(img_labels), size=3000, replace=False)
-    features = features[ids2use, :]
-    img_labels = img_labels[ids2use]
-
-    # compute tSNE
-    tsne = TSNE(n_components=2, perplexity=perplex)
-    tsne_result = tsne.fit_transform(features)
-
-    # plot
-    cmap = plt.cm.get_cmap('hsv', len(np.unique(img_labels)))
-    fig, ax = plt.subplots(figsize=figsize)
-    for id in range(len(img_labels)):
-        plt.scatter(tsne_result[id, 0],  tsne_result[id, 1],
-                    marker='o',
-                    color=cmap(img_labels[id]),
-                    linewidth='1',
-                    alpha=0.8)
-    ax.update_datalim(tsne_result)
-    ax.autoscale()
-    plt.show(False)
-
-    # save plot
-    fig.savefig(save_path, dpi=1000)
-    plt.close()
+# ################## GENERATE tSNE PLOTS #######################
+# from sklearn.manifold import TSNE
+# import matplotlib.pyplot as plt
+# from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+# from sklearn.preprocessing import StandardScaler
+# import cv2
+#
+# def plot_tSNE(opt, dataloader, model, feat='embed_class', type_data='trainval', n_samples=100, img_size= 45, perplex=40.0, img_zoom=0.7, epoch=0):
+#
+#     #Compute features
+#     _ = model.eval()
+#     with torch.no_grad():
+#         features_res = list()
+#         features_class = list()
+#         final_iter  = tqdm(dataloader, desc='Computing Embeddings')
+#         for idx,inp in enumerate(final_iter):
+#             input_img = inp[-1]
+#
+#             if 'embed' in feat:
+#                 out = model(input_img.to(opt.device), feat='embed')
+#                 out_res = out[:,opt.classembed:]
+#                 out_class = out[:,:opt.classembed]
+#             else:
+#                 raise Exception('feature type not supported!')
+#
+#             features_class.extend(out_class.cpu().detach().numpy().tolist())
+#             features_res.extend(out_res.cpu().detach().numpy().tolist())
+#
+#         features_class = np.vstack(features_class).astype('float32')
+#         features_res = np.vstack(features_res).astype('float32')
+#
+#     # choose subset
+#     idx2use = np.random.choice(features_class.shape[0], size=n_samples, replace=False)
+#     features_class_sub = features_class[idx2use, :]
+#     features_res_sub = features_res[idx2use, :]
+#
+#     # prepare images
+#     image_paths = np.array([x[0] for x in dataloader.dataset.image_list])
+#     image_paths_sub = [image_paths[k] for k in idx2use]
+#     image_labels = np.array([x[1] for x in dataloader.dataset.image_list])
+#     image_labels_sub = [image_labels[k] for k in idx2use]
+#
+#     images = []
+#     labels_unique = np.unique(image_labels_sub)
+#     cmap = plt.cm.get_cmap('hsv', len(labels_unique))
+#     top, bottom, left, right = [int(img_size * 0.05)] * 4
+#     for path, label in zip(image_paths_sub, image_labels_sub):
+#         image = cv2.imread(path, cv2.IMREAD_COLOR)
+#         image = cv2.resize(image, (img_size, img_size))
+#         c = cmap(np.where(labels_unique == label)[0][0])
+#         image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)])
+#
+#         images.append(np.array(image))
+#     images = np.array(images)
+#
+#     # plot
+#     save_path_base = opt.save_path + '/tSNE/epoch_{}'.format(epoch)
+#     if not os.path.isdir(save_path_base):
+#         os.makedirs(save_path_base)
+#
+#     for p in perplex:
+#         ### SCATTER PLOTS
+#
+#         # tsne class embedding
+#         save_path = save_path_base + '/scatter_class_{}_p{}.svg'.format(type_data, int(p))
+#         visualize_scatter(features_class, image_labels, p, save_path=save_path)
+#
+#         # tsne residual embedding
+#         save_path = save_path_base + '/scatter_res_{}_p{}.svg'.format(type_data, int(p))
+#         visualize_scatter(features_res, image_labels, p, save_path=save_path)
+#
+#
+#         ### IMAGE PLOTS
+#
+#         # tsne class embedding
+#         save_path = save_path_base + '/img_class_{}_p{}.svg'.format(type_data, int(p))
+#         visualize_tsne_with_images(features_class_sub, p, images=images, image_zoom=img_zoom, save_path=save_path)
+#
+#         # tsne residual embedding
+#         save_path = save_path_base + '/img_res_{}_p{}.svg'.format(type_data, int(p))
+#         visualize_tsne_with_images(features_res_sub, p, images=images, image_zoom=img_zoom, save_path=save_path)
+#
+#
+# def visualize_tsne_with_images(features, perplex, images, figsize=(30,30), image_zoom=1, save_path=None):
+#     # compute tSNE
+#     tsne = TSNE(n_components=2, perplexity=perplex)
+#     tsne_result = tsne.fit_transform(features)
+#
+#     fig, ax = plt.subplots(figsize=figsize)
+#     artists = []
+#     for xy, i in zip(tsne_result, images):
+#         x0, y0 = xy
+#         img = OffsetImage(i, zoom=image_zoom)
+#         ab = AnnotationBbox(img, (x0, y0), xycoords='data', frameon=False)
+#         artists.append(ax.add_artist(ab))
+#     ax.update_datalim(tsne_result)
+#     ax.autoscale()
+#     plt.show(False)
+#
+#     # save plot
+#     fig.savefig(save_path, dpi=1000)
+#     plt.close()
+#
+#
+# def visualize_scatter(features, img_labels, perplex, figsize=(10,10), save_path=None):
+#
+#     # use subset
+#     ids2use = np.random.choice(len(img_labels), size=3000, replace=False)
+#     features = features[ids2use, :]
+#     img_labels = img_labels[ids2use]
+#
+#     # compute tSNE
+#     tsne = TSNE(n_components=2, perplexity=perplex)
+#     tsne_result = tsne.fit_transform(features)
+#
+#     # plot
+#     cmap = plt.cm.get_cmap('hsv', len(np.unique(img_labels)))
+#     fig, ax = plt.subplots(figsize=figsize)
+#     for id in range(len(img_labels)):
+#         plt.scatter(tsne_result[id, 0],  tsne_result[id, 1],
+#                     marker='o',
+#                     color=cmap(img_labels[id]),
+#                     linewidth='1',
+#                     alpha=0.8)
+#     ax.update_datalim(tsne_result)
+#     ax.autoscale()
+#     plt.show(False)
+#
+#     # save plot
+#     fig.savefig(save_path, dpi=1000)
+#     plt.close()

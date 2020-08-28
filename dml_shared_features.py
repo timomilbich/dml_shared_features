@@ -99,18 +99,18 @@ import losses as losses
 class opt_class(object):
 
     def __init__(self):
-        self.dataset = 'cars196' # cars196   cub200
+        self.dataset = 'cub200' # cars196   cub200
         self.shared_norm = False
         self.lr = 0.00001
         self.n_epochs = 300
-        self.kernels = 8
+        self.kernels = 12 #8
         self.bs = 112
         self.samples_per_class = 4
-        self.seed = 23
+        self.seed = 1
         self.scheduler = 'step'
         self.gamma = 0.3
         self.decay = 0.0004
-        self.tau = [70, 90] # [70, 90, 120]    [55, 80]
+        self.tau = [55, 80]  # [70, 90]
         self.classembed = 128
         self.class_loss = 'marginloss'
         self.class_sampling = 'distance'
@@ -121,8 +121,8 @@ class opt_class(object):
         self.class_beta = 1.2
         self.class_nu = 0
         self.intraclassembed = 128
-        self.intra_loss = 'marginloss_noise'
-        self.intra_sampling = 'distance_noise'    #distance_noise
+        self.intra_loss = 'marginloss_noise' #'marginloss_noise'
+        self.intra_sampling = 'distance_noise' # 'distance_noise'
         self.intra_weight_neg = 1.0
         self.intra_weight_pos = 1.0
         self.pos_level = 4
@@ -142,7 +142,7 @@ class opt_class(object):
         self.k_vals = [1,2,4,8]
         self.arch = 'resnet50'
         self.no_weights = False
-        self.source_path = os.getcwd()+'/Datasets'
+        self.source_path = '/export/home/karoth/Datasets'
         self.save_path = os.getcwd()+'/Training_Results'
         self.freq_eval_res = 1
         self.freq_eval_trainvalset = 25
@@ -151,14 +151,14 @@ class opt_class(object):
 
         self.adv_detach_target = False
         self.adv_dir = 'res_class' # class_res      res_class
-        self.disw = 500
+        self.disw = 2000 #500
         self.num_cluster = 200
-        self.gpu = 4
-        self.savename = 'verify_old_code' # 'cars_200_noise_adv_500_70_90_seed23_origAdvDir_epoch150New'
+        self.gpu = 8
+        self.savename = 'verify_old_code_280820' # 'cars_200_noise_adv_500_70_90_seed23_origAdvDir_epoch150New'
 
 
 opt = opt_class()
-opt.embed_dim = opt.classembed # +opt.intraclassembed
+opt.embed_dim = opt.classembed + opt.intraclassembed
 
 """============================================================================"""
 opt.source_path += '/'+opt.dataset
@@ -291,11 +291,11 @@ if opt.freq_eval_res > 0:
 
 
 # debug stuff
-CSV_log_triplet_dist = aux.CSV_Writer(opt.save_path +'/log_epoch_sample_triplet_dist.csv', ['Epoch', 'ap_class', 'an_class', 'ap_noise', 'an_noise'])
-CSV_log_rand_triplet_dist = aux.CSV_Writer(opt.save_path +'/log_epoch_rand_triplet_dist.csv', ['Epoch', 'ap_class', 'an_class', 'ap_noise', 'an_noise'])
+# CSV_log_triplet_dist = aux.CSV_Writer(opt.save_path +'/log_epoch_sample_triplet_dist.csv', ['Epoch', 'ap_class', 'an_class', 'ap_noise', 'an_noise'])
+# CSV_log_rand_triplet_dist = aux.CSV_Writer(opt.save_path +'/log_epoch_rand_triplet_dist.csv', ['Epoch', 'ap_class', 'an_class', 'ap_noise', 'an_noise'])
 
-CSV_log_class_dist_trainval = aux.CSV_Writer(opt.save_path +'/log_epoch_class_dist_trainval.csv', ['Epoch', 'mean_intra_class', 'mean_inter_class', 'mean_intra_res', 'mean_inter_res'])
-CSV_log_class_dist_val = aux.CSV_Writer(opt.save_path +'/log_epoch_class_dist_val.csv', ['Epoch', 'mean_intra_class', 'mean_inter_class', 'mean_intra_res', 'mean_inter_res'])
+# CSV_log_class_dist_trainval = aux.CSV_Writer(opt.save_path +'/log_epoch_class_dist_trainval.csv', ['Epoch', 'mean_intra_class', 'mean_inter_class', 'mean_intra_res', 'mean_inter_res'])
+# CSV_log_class_dist_val = aux.CSV_Writer(opt.save_path +'/log_epoch_class_dist_val.csv', ['Epoch', 'mean_intra_class', 'mean_inter_class', 'mean_intra_res', 'mean_inter_res'])
 
 
 # save config to project folder
@@ -365,17 +365,17 @@ best_recall_score_class = 0
 def train_one_epoch(train_dataloader, cluster_dataloader, model, optimizer, class_criterion, intra_criterion, opt, progress_saver, epoch):
     loss_collect_class, loss_collect_intra, loss_collect_adv = [],[],[]
 
-    # sampled
-    mean_dist_ap_class = list()
-    mean_dist_an_class = list()
-    mean_dist_ap_res = list()
-    mean_dist_an_res = list()
-
-    # random
-    rand_mean_dist_ap_class = list()
-    rand_mean_dist_an_class = list()
-    rand_mean_dist_ap_res = list()
-    rand_mean_dist_an_res = list()
+    # # sampled
+    # mean_dist_ap_class = list()
+    # mean_dist_an_class = list()
+    # mean_dist_ap_res = list()
+    # mean_dist_an_res = list()
+    #
+    # # random
+    # rand_mean_dist_ap_class = list()
+    # rand_mean_dist_an_class = list()
+    # rand_mean_dist_ap_res = list()
+    # rand_mean_dist_an_res = list()
 
     start = time.time()
     data_iterator = tqdm(zip(train_dataloader,cluster_dataloader), desc='Epoch {} Training...'.format(epoch), total=len(train_dataloader))
@@ -394,18 +394,18 @@ def train_one_epoch(train_dataloader, cluster_dataloader, model, optimizer, clas
         optimizer.step()
         loss_collect_class.append(loss.item())
 
-        # analyze sampled triplets:
-        features = features.detach().cpu().numpy()
-        triplets = np.asarray([trip for trip in sampled_triplets])
-        # # distances between A,P and A,N
-        dists_ap = np.sqrt(np.sum((features[triplets[:, 0], :opt.classembed] - features[triplets[:, 1], :opt.classembed]) ** 2, axis=1))
-        mean_dist_ap_class.append(np.mean(dists_ap))
-        dists_an = np.sqrt(np.sum((features[triplets[:, 0], :opt.classembed] - features[triplets[:, 2], :opt.classembed]) ** 2, axis=1))
-        mean_dist_an_class.append(np.mean(dists_an))
-        dists_ap = np.sqrt(np.sum((features[triplets[:, 0], opt.classembed:] - features[triplets[:, 1], opt.classembed:]) ** 2, axis=1))
-        mean_dist_ap_res.append(np.mean(dists_ap))
-        dists_an = np.sqrt(np.sum((features[triplets[:, 0], opt.classembed:] - features[triplets[:, 2], opt.classembed:]) ** 2, axis=1))
-        mean_dist_an_res.append(np.mean(dists_an))
+        # # analyze sampled triplets:
+        # features = features.detach().cpu().numpy()
+        # triplets = np.asarray([trip for trip in sampled_triplets])
+        # # # distances between A,P and A,N
+        # dists_ap = np.sqrt(np.sum((features[triplets[:, 0], :opt.classembed] - features[triplets[:, 1], :opt.classembed]) ** 2, axis=1))
+        # mean_dist_ap_class.append(np.mean(dists_ap))
+        # dists_an = np.sqrt(np.sum((features[triplets[:, 0], :opt.classembed] - features[triplets[:, 2], :opt.classembed]) ** 2, axis=1))
+        # mean_dist_an_class.append(np.mean(dists_an))
+        # dists_ap = np.sqrt(np.sum((features[triplets[:, 0], opt.classembed:] - features[triplets[:, 1], opt.classembed:]) ** 2, axis=1))
+        # mean_dist_ap_res.append(np.mean(dists_ap))
+        # dists_an = np.sqrt(np.sum((features[triplets[:, 0], opt.classembed:] - features[triplets[:, 2], opt.classembed:]) ** 2, axis=1))
+        # mean_dist_an_res.append(np.mean(dists_an))
 
         ##### Train IntraClass Embedding
         features  = model(cluster_input.to(opt.device))
@@ -420,18 +420,18 @@ def train_one_epoch(train_dataloader, cluster_dataloader, model, optimizer, clas
         optimizer.step()
         loss_collect_intra.append(loss.item())
 
-        # analyze random triplets:
-        features = features.detach().cpu().numpy()
-        triplets = np.asarray([trip for trip in random_triplets])
-        # # distances between A,P and A,N
-        dists_ap = np.sqrt(np.sum((features[triplets[:, 0], :opt.classembed] - features[triplets[:, 1], :opt.classembed])**2, axis=1))
-        rand_mean_dist_ap_class.append(np.mean(dists_ap))
-        dists_an = np.sqrt(np.sum((features[triplets[:, 0], :opt.classembed] - features[triplets[:, 2], :opt.classembed])**2, axis=1))
-        rand_mean_dist_an_class.append(np.mean(dists_an))
-        dists_ap = np.sqrt(np.sum((features[triplets[:, 0], opt.classembed:] - features[triplets[:, 1], opt.classembed:])**2, axis=1))
-        rand_mean_dist_ap_res.append(np.mean(dists_ap))
-        dists_an = np.sqrt(np.sum((features[triplets[:, 0], opt.classembed:] - features[triplets[:, 2], opt.classembed:])**2, axis=1))
-        rand_mean_dist_an_res.append(np.mean(dists_an))
+        # # analyze random triplets:
+        # features = features.detach().cpu().numpy()
+        # triplets = np.asarray([trip for trip in random_triplets])
+        # # # distances between A,P and A,N
+        # dists_ap = np.sqrt(np.sum((features[triplets[:, 0], :opt.classembed] - features[triplets[:, 1], :opt.classembed])**2, axis=1))
+        # rand_mean_dist_ap_class.append(np.mean(dists_ap))
+        # dists_an = np.sqrt(np.sum((features[triplets[:, 0], :opt.classembed] - features[triplets[:, 2], :opt.classembed])**2, axis=1))
+        # rand_mean_dist_an_class.append(np.mean(dists_an))
+        # dists_ap = np.sqrt(np.sum((features[triplets[:, 0], opt.classembed:] - features[triplets[:, 1], opt.classembed:])**2, axis=1))
+        # rand_mean_dist_ap_res.append(np.mean(dists_ap))
+        # dists_an = np.sqrt(np.sum((features[triplets[:, 0], opt.classembed:] - features[triplets[:, 2], opt.classembed:])**2, axis=1))
+        # rand_mean_dist_an_res.append(np.mean(dists_an))
 
 
         #####
@@ -443,8 +443,8 @@ def train_one_epoch(train_dataloader, cluster_dataloader, model, optimizer, clas
     progress_saver['Train Loss'].append(np.mean(loss_collect_class))
 
     ### debug stuff
-    CSV_log_triplet_dist.log([epoch, np.mean(mean_dist_ap_class), np.mean(mean_dist_an_class), np.mean(mean_dist_ap_res), np.mean(mean_dist_an_res)])
-    CSV_log_rand_triplet_dist.log([epoch, np.mean(rand_mean_dist_ap_class), np.mean(rand_mean_dist_an_class), np.mean(rand_mean_dist_ap_res), np.mean(rand_mean_dist_an_res)])
+    # CSV_log_triplet_dist.log([epoch, np.mean(mean_dist_ap_class), np.mean(mean_dist_an_class), np.mean(mean_dist_ap_res), np.mean(mean_dist_an_res)])
+    # CSV_log_rand_triplet_dist.log([epoch, np.mean(rand_mean_dist_ap_class), np.mean(rand_mean_dist_an_class), np.mean(rand_mean_dist_ap_res), np.mean(rand_mean_dist_an_res)])
 
 
 
