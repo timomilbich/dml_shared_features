@@ -125,14 +125,15 @@ class opt_class(object):
         self.k_vals = [1,2,4,8]
         self.arch = 'resnet50'
         self.no_weights = False
-        self.source_path = os.getcwd()+'/Datasets'
+        self.source_path = '/export/home/karoth/Datasets'
+
         self.save_path = os.getcwd()+'/Training_Results'
         self.freq_eval_res = 1
         self.freq_eval_trainvalset = 25
         self.freq_tsne = 999
         self.freq_analyse_inter_intra_dist = 999
 
-        self.gpu = 1
+        self.gpu = 3
         self.savename = 'cars196_margin_baseline' # 'baseline_cars_marginloss'
 
 

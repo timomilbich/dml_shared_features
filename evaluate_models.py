@@ -26,6 +26,10 @@ from sklearn import metrics
 import faiss
 
 
+torch.backends.cudnn.enabled = False
+# torch.backends.cudnn.benchmark = True
+
+
 # ################### INPUT ARGUMENTS ###################
 # parser = argparse.ArgumentParser()
 #
@@ -107,7 +111,7 @@ class opt_class(object):
         self.lr = 0.00001
         self.n_epochs = 150
         self.kernels = 8
-        self.bs = 112
+        self.bs = 10 # 112
         self.samples_per_class = 4
         self.seed = 23
         self.scheduler = 'step'
@@ -144,7 +148,7 @@ class opt_class(object):
         self.k_vals = [1,2,4,8]
         self.arch = 'resnet50'
         self.no_weights = False
-        self.source_path = os.getcwd()+'/Datasets'
+        self.source_path = '/export/home/karoth/Datasets'
         self.save_path = os.getcwd()+'/Analysis/NNs'
         self.freq_eval_res = 1
         self.freq_eval_trainvalset = 25
@@ -156,8 +160,9 @@ class opt_class(object):
         self.disw = 500
         self.num_cluster = 200
         self.cluster_update = 1
-        self.gpu = 0
-        self.model_name = 'cars_200_noise_adv_500_70_90_seed23_origAdvDir_epoch150New'
+        self.gpu =3
+        self.model_name = 'verify_old_code_280820'
+        # self.model_name = 'cars_200_noise_adv_500_70_90_seed23_origAdvDir_epoch150New'
         # self.model_name = 'cars_200_noise_singleEmbed_70_90_seed23_LabelsOnly'
 
 
@@ -193,6 +198,7 @@ _  = model.to(opt.device)
 
 # load weights
 weights = torch.load(os.getcwd()+'/Training_Results/{}/{}/checkpoint_res.pth.tar'.format(opt.dataset, opt.model_name))['state_dict']
+# weights = torch.load(os.getcwd()+'/Training_Results/{}/{}/checkpoint_class.pth.tar'.format(opt.dataset, opt.model_name))['state_dict']
 model.load_state_dict(weights)
 
 # # randomly re-initialize embed
@@ -257,10 +263,11 @@ else:
 #################### COMPUTE NN ############################
 
 # choose dataset
-dataloader = train_eval_dataloader                    # train_eval_dataloader    val_dataloader
+dataloader = val_dataloader                    # train_eval_dataloader    val_dataloader
 
 feat2use = 'embed'
 embed_type = 'res'
+weight_res_embed = 1.0 # 0.7
 opt.spliteval = True
 
 image_paths = np.array([x[0] for x in dataloader.dataset.image_list])
@@ -286,6 +293,10 @@ with torch.no_grad():
                     out = out[:, :opt.classembed]
                 elif embed_type == 'res':
                     out = out[:, opt.classembed:]
+                elif embed_type == 'both':
+                    out[:, opt.classembed:] = weight_res_embed * out[:, opt.classembed:]
+                    out[:, :opt.classembed] = (1 - weight_res_embed) * out[:, :opt.classembed]
+
                 else:
                     raise Exception('Unknown embed type!')
 
