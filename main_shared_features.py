@@ -507,8 +507,8 @@ def evaluate_standard(val_dataloader, model, optimizer, opt, progress_saver, epo
                 NMI_res, recall_at_ks_res, feature_coll_res, image_paths_res, mean_intra_dist_res, mean_inter_dist_res = \
                     aux.eval_metrics(model, val_dataloader, opt.device, spliteval=opt.spliteval, epoch=epoch, k_vals=opt.k_vals, opt=opt, embed_type='res')
                 if opt.log_online:
-                    wandb.log({f'nmi (res, {data_type})': NMI}, step=epoch)
-                    for i, recall in enumerate(recall_at_ks):
+                    wandb.log({f'nmi (res, {data_type})': NMI_res}, step=epoch)
+                    for i, recall in enumerate(recall_at_ks_res):
                         wandb.log({f'e_recall@{opt.k_vals[i]} (res, {data_type})': recall}, step=epoch)
 
                 # log evaluations of residual embedding
