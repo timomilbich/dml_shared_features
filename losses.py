@@ -56,6 +56,9 @@ def loss_select(loss, opt, to_optim):
         criterion = MarginLoss_noise_constrainPos(**loss_params)
         to_optim += [{'params': criterion.parameters(), 'lr': opt.beta_lr, 'weight_decay': 0}]
 
+    elif loss == 'multisimilarityloss':
+        criterion = MultisimilarityLoss(opt)
+        to_optim += [{'params': criterion.parameters(), 'lr': opt.beta_lr, 'weight_decay': 0}]
     else:
         raise Exception('Loss {} not available!'.format(opt.loss))
 
@@ -549,6 +552,134 @@ class Sampler():
         return sampled_triplets
 
 
+"""================================================================================================="""
+class MultisimilarityLoss(torch.nn.Module):
+    def __init__(self, opt, **kwargs):
+        """
+        Args:
+            margin:             Triplet Margin.
+            nu:                 Regularisation Parameter for beta values if they are learned.
+            beta:               Class-Margin values.
+            n_classes:          Number of different classes during training.
+        """
+        super(MultisimilarityLoss, self).__init__()
+        self.pars = opt
+        self.n_classes          = opt.num_classes
+        self.sampler            = None
+
+        self.pos_weight = opt.class_msim_pos_weight
+        self.neg_weight = opt.class_msim_neg_weight
+        self.margin     = opt.class_msim_margin
+        self.pos_thresh = opt.class_msim_pos_thresh
+        self.neg_thresh = opt.class_msim_neg_thresh
+        self.d_mode     = opt.class_msim_d_mode
+        self.base_mode  = opt.class_msim_base_mode
+        self.name       = 'multisimilarity'
+
+    def forward(self, batch, labels, **kwargs):
+        """
+        Args:
+            batch:   torch.Tensor: Input of embeddings with size (BS x DIM)
+            labels: nparray/list: For each element of the batch assigns a class [0,...,C-1], shape: (BS x 1)
+        """
+        bs = len(batch)
+        self.dim = 0
+        self.embed_dim = batch.shape[-1]
+        self.similarity = self.smat(batch, batch, self.d_mode)
+
+        ###
+        if self.d_mode=='euclidean':
+            pos_weight = -1.*self.pos_weight
+            neg_weight = -1.*self.neg_weight
+        else:
+            pos_weight = self.pos_weight
+            neg_weight = self.neg_weight
+
+        ###
+        w_pos_sims = -pos_weight*(self.similarity-self.pos_thresh)
+        w_neg_sims =  neg_weight*(self.similarity-self.neg_thresh)
+
+        ###
+        labels   = labels.unsqueeze(1)
+        self.bsame_labels = (labels.T == labels.view(-1,1)).to(batch.device).T
+        self.bdiff_labels = (labels.T != labels.view(-1,1)).to(batch.device).T
+
+        ### Compute MultiSimLoss
+        pos_mask, neg_mask = self.sample_mask(self.similarity)
+        self.pos_mask, self.neg_mask = pos_mask, neg_mask
+
+        pos_s = self.masked_logsumexp(w_pos_sims, mask=pos_mask, dim=self.dim, max=True  if self.d_mode=='euclidean' else False)
+        neg_s = self.masked_logsumexp(w_neg_sims, mask=neg_mask, dim=self.dim, max=False if self.d_mode=='euclidean' else True)
+
+        ###
+        pos_s, neg_s = 1./np.abs(pos_weight)*torch.nn.Softplus()(pos_s), 1./np.abs(neg_weight)*torch.nn.Softplus()(neg_s)
+        pos_s, neg_s = pos_s.mean(), neg_s.mean()
+        loss = pos_s + neg_s
+
+        # make output consistent...
+        sampled_triplets = None
+
+        return loss, sampled_triplets
+
+
+    ###
+    def sample_mask(self, sims):
+        ### Get Indices/Sampling Bounds
+        bsame_labels = copy.deepcopy(self.bsame_labels)
+        bdiff_labels = copy.deepcopy(self.bdiff_labels)
+        pos_bound, neg_bound = [], []
+        bound = []
+        for i in range(len(sims)):
+            pos_ixs    = bsame_labels[i]
+            neg_ixs    = bdiff_labels[i]
+            pos_ixs[i] = False
+            pos_bsims  = self.similarity[i][pos_ixs]
+            neg_bsims  = self.similarity[i][neg_ixs]
+            if self.d_mode=='euclidean':
+                pos_bound.append(pos_bsims.max())
+                neg_bound.append(neg_bsims.min())
+            else:
+                pos_bound.append(pos_bsims.min())
+                neg_bound.append(neg_bsims.max())
+        pos_bound, neg_bound = torch.stack(pos_bound), torch.stack(neg_bound)
+        ### Get LogSumExp-Masks
+        if self.d_mode=='euclidean':
+            self.neg_mask = neg_mask = self.bdiff_labels*((self.similarity - self.margin) < pos_bound)
+            self.pos_mask = pos_mask = self.bsame_labels*((self.similarity + self.margin) > neg_bound)
+        else:
+            self.neg_mask = neg_mask = self.bdiff_labels*((self.similarity + self.margin) > pos_bound)
+            self.pos_mask = pos_mask = self.bsame_labels*((self.similarity - self.margin) < neg_bound)
+
+        return pos_mask, neg_mask
+
+
+    ###
+    def smat(self, A, B, mode='cosine'):
+        if mode=='cosine':
+            return A.mm(B.T)
+        elif mode=='euclidean':
+            return (A.mm(A.T).diag().unsqueeze(-1)+B.mm(B.T).diag().unsqueeze(0)-2*A.mm(B.T)).clamp(min=1e-20).sqrt()
+
+
+    ###
+    def masked_logsumexp(self, sims, dim=0, mask=None, max=True):
+        if mask is None:
+            return torch.logsumexp(sims, dim=dim)
+        else:
+            if not max:
+                ref_v      = (sims*mask).min(dim=dim, keepdim=True)[0]
+            else:
+                ref_v      = (sims*mask).max(dim=dim, keepdim=True)[0]
+
+            nz_entries = (sims*mask)
+            nz_entries = nz_entries.max(dim=dim,keepdim=True)[0]+nz_entries.min(dim=dim,keepdim=True)[0]
+            nz_entries = torch.where(nz_entries.view(-1))[0].view(-1)
+
+            if not len(nz_entries):
+                return torch.tensor(0).to(torch.float).to(sims.device)
+            else:
+                return torch.log((torch.sum(torch.exp(sims-ref_v.detach())*mask,dim=dim)).view(-1)[nz_entries])+ref_v.detach().view(-1)[nz_entries]
+
 
 """================================================================================================="""
 ### Standard Triplet Loss, finds triplets in Mini-batches.
@@ -582,8 +713,6 @@ class TripletLoss(torch.nn.Module):
             return torch.mean(loss)
         else:
             return torch.sum(loss)
-
-
 
 
 """================================================================================================="""
@@ -647,7 +776,6 @@ class MarginLossDEBUG(torch.nn.Module):
         if self.nu: loss = loss + beta_regularisation_loss.type(torch.cuda.FloatTensor)
 
         return loss, triplet_labels
-
 
 
 """================================================================================================="""
@@ -975,6 +1103,7 @@ class MixupRegression(torch.nn.Module):
         return loss
 
 
+### Adversarial Loss
 """================================================================================================="""
 class GradRev(torch.autograd.Function):
     def forward(self, x):
@@ -986,7 +1115,6 @@ class GradRev(torch.autograd.Function):
 def grad_reverse(x):
     return GradRev()(x)
 
-### Adversarial Loss
 class AdvLoss(torch.nn.Module):
     def __init__(self, opt, classembd, clusterembd,proj_dim=512,lam_w=1e-2):
         ### Set Lambda to 1e-3
@@ -1041,6 +1169,7 @@ class AdvLoss(torch.nn.Module):
 
 
 ### MI critic
+"""================================================================================================="""
 def repeat_dense(input_dim, n_layers, n_units=512):
     """
     Repeat linear layers, attached to given input.
@@ -1060,7 +1189,6 @@ def repeat_dense(input_dim, n_layers, n_units=512):
 
     return torch.nn.Sequential(*h)
 
-    
 class MI_Critic(torch.nn.Module):
 
     def __init__(self, phi_dim, n_layer=3, n_units=512, concat_input=False):
@@ -1126,7 +1254,6 @@ class ProxyNCALoss(torch.nn.Module):
         return negative_log_proxy_nca_loss
 
 
-
 """================================================================================================="""
 ### Container to use with latent space separation
 def cluster(opt, dataloader, model, mode='mean_std', feat='embed_res', plot=False, verbose=False, epoch=-1):
@@ -1169,7 +1296,6 @@ def cluster(opt, dataloader, model, mode='mean_std', feat='embed_res', plot=Fals
     _, cluster_assignments = kmeans.index.search(features,1)
 
     return cluster_assignments
-
 
 def random_cluster(opt, dataloader):
     cluster_assignments = np.random.choice(opt.num_cluster, len(dataloader.dataset))
@@ -1318,7 +1444,6 @@ def analyse_data_distribution(opt, dataloader, model, mode='mean_std', feat='emb
     # plt.show(False)
     # f.savefig('./Analysis/lay2_lay4_nonstand.pdf') # lay4_
 
-
 def visualize_single_cluster(cluster, dataset, subtitles=None, n_max_samples=100, path_save=None, plot=False, title=None, close_fig=True):
     import matplotlib.pyplot as plt
 
@@ -1361,7 +1486,6 @@ def visualize_single_cluster(cluster, dataset, subtitles=None, n_max_samples=100
 
     if close_fig:
         plt.close()
-
 
 def compute_cluster_purity(cluster_ids, gt_labels):
     member_labels = [gt_labels[k] for k in cluster_ids]

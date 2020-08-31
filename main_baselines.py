@@ -24,121 +24,130 @@ import losses as losses
 
 
 # ################### INPUT ARGUMENTS ###################
-# parser = argparse.ArgumentParser()
-#
-# ####### Main Parameter: Dataset to use for Training
-# parser.add_argument('--dataset',      default='cub200',   type=str, help='Dataset to use.')
-#
-# ### General Training Parameters
-# parser.add_argument('--lr',                default=0.00001,     type=float, help='Learning Rate for network parameters.')
-# parser.add_argument('--n_epochs',          default=80,          type=int,   help='Number of training epochs.')
-# parser.add_argument('--kernels',           default=8,           type=int,   help='Number of workers for pytorch dataloader.')
-# parser.add_argument('--bs',                default=112 ,        type=int,   help='Mini-Batchsize to use.')
-# parser.add_argument('--samples_per_class', default=4,           type=int,   help='Number of samples in one class drawn before choosing the next class. Set to >1 for losses other than ProxyNCA.')
-# parser.add_argument('--seed',              default=1,           type=int,   help='Random seed for reproducibility.')
-# parser.add_argument('--scheduler',         default='step',      type=str,   help='Type of learning rate scheduling. Currently: step & exp.')
-# parser.add_argument('--gamma',             default=0.3,         type=float, help='Learning rate reduction after tau epochs.')
-# parser.add_argument('--decay',             default=0.0004,      type=float, help='Weight decay for optimizer.')
-# parser.add_argument('--tau',               default=[30,55],nargs='+',type=int,help='Stepsize before reducing learning rate.')
-#
-# ### Class Embedding Settings
-# parser.add_argument('--classembed',         default=128,          type=int,   help='Embedding Dimension for Class Embedding.')
-# parser.add_argument('--class_loss',         default='marginloss', type=str,   help='Choose between TripletLoss, ProxyNCA, ...')
-# parser.add_argument('--class_sampling',     default='distance',   type=str,   help='For triplet-based losses: Modes of Sampling: random, semihard, distance.')
-# parser.add_argument('--class_proxy_lr',     default=0.00001,      type=float, help='PROXYNCA: Learning Rate for Proxies in ProxyNCALoss.')
-# parser.add_argument('--class_margin',       default=0.2,          type=float, help='TRIPLET, MARGIN: Margin for Triplet Loss')
-# parser.add_argument('--class_beta_lr',      default=0.0005,       type=float, help='MARGIN: Learning Rate for class margin parameters in MarginLoss')
-# parser.add_argument('--class_beta',         default=1.2,          type=float, help='MARGIN: Initial Class Margin Parameter in Margin Loss')
-# parser.add_argument('--class_nu',           default=0,            type=float, help='MARGIN: Regularisation value on betas in Margin Loss.')
-# parser.add_argument('--class_beta_constant',action='store_true',              help='MARGIN: Keep Beta fixed.')
-#
-# ### IntraClass Embedding Settings
-# parser.add_argument('--intraclassembed',     default=128,    type=int,   help='Embedding Dimension for IntraClass Embedding.')
-# parser.add_argument('--intra_loss',          default='marginloss', type=str, help='Clustering mode: Without normalization (no_norm) or with mean-subtraction (mean), mean-std-norm (mstd) or whitening (white).')
-# parser.add_argument('--intra_sampling',      default='distance',   type=str, help='Clustering mode: Without normalization (no_norm) or with mean-subtraction (mean), mean-std-norm (mstd) or whitening (white).')
-# parser.add_argument('--intra_proxy_lr',      default=0.00001,      type=float, help='PROXYNCA: Learning Rate for Proxies in ProxyNCALoss.')
-# parser.add_argument('--intra_margin',        default=0.2,    type=float, help='Margin value for cluster criterion.')
-# parser.add_argument('--intra_beta_lr',       default=0.0005,       type=float, help='MARGIN: Learning Rate for class margin parameters in MarginLoss')
-# parser.add_argument('--intra_beta',          default=1.2,          type=float, help='MARGIN: Initial Class Margin Parameter in Margin Loss')
-# parser.add_argument('--intra_nu',            default=0,            type=float, help='MARGIN: Regularisation value on betas in Margin Loss.')
-# parser.add_argument('--intra_beta_constant', action='store_true',              help='MARGIN: Keep Beta fixed.')
-#
-# parser.add_argument('--no_adv_class_reverse', action='store_true',              help='MARGIN: Keep Beta fixed.')
-# parser.add_argument('--no_adv_intra_reverse', action='store_true',              help='MARGIN: Keep Beta fixed.')
-#
-# ### MIC Parameters
-# parser.add_argument('--disw',                default=0.001,  type=float, help='Weight on adversarial loss.')
-# parser.add_argument('--advnet_dim',          default=512,    type=int,   help='Dimensionality of adversarial network.')
-# parser.add_argument('--advnet_decay',        default=0,      type=float,   help='Weight decay for adversarial network.')
-# parser.add_argument('--num_cluster',         default=30,     type=int,   help='Number of clusters.')
-# parser.add_argument('--cluster_update',      default=1,      type=int,   help='Number of epochs to train before updating cluster labels.')
-# parser.add_argument('--mode',                default='mstd', type=str,   help='Clustering mode: Without normalization (no_norm) or with mean-subtraction (mean), mean-std-norm (mstd) or whitening (white).')
-# parser.add_argument('--use_super',           action ='store_true',        help='use super labels for SOP.')
-#
-# ### Evaluation Parameters
-# parser.add_argument('--k_vals',        nargs='+', default=[1,2,4,8], type=int, help='Recall @ Values.')
-# parser.add_argument('--not_spliteval', action='store_true',                    help='If set, evaluation is done with both embeddings.')
-#
-# ### Network parameters
-# parser.add_argument('--arch',           default='resnet50',  type=str,    help='Choice of architecture. Limited only to the options avail. to the pretrainedmodels-library.')
-# parser.add_argument('--not_pretrained', action ='store_true',             help='If set, no pretraining is used for initialization.')
-#
-# ### Setup Parameters
-# parser.add_argument('--gpu',          default=0,           type=int,   help='Random seed for reproducibility.')
-# parser.add_argument('--no_weights',   action='store_true',             help='If set, no weights are saved during training.')
-# parser.add_argument('--savename',     default='',          type=str,   help='Appendix to save folder name if any special information is to be included. Will also override the time appendix.')
-#
-# ### Paths to datasets and storage folder
-# parser.add_argument('--source_path',  default=os.getcwd()+'/Datasets', type=str,         help='Path to folder containing the dataset folders.')
-# parser.add_argument('--save_path',    default=os.getcwd()+'/Training_Results', type=str, help='Where to save everything.')
-#
-# ### Read in parameters
-# opt = parser.parse_args()
+parser = argparse.ArgumentParser()
+
+####### Main Parameter: Dataset to use for Training
+parser.add_argument('--dataset',      default='cars196',   type=str, help='Dataset to use.')
+
+### General Training Parameters
+parser.add_argument('--lr',                default=0.00001,     type=float, help='Learning Rate for network parameters.')
+parser.add_argument('--n_epochs',          default=150,          type=int,   help='Number of training epochs.')
+parser.add_argument('--kernels',           default=12,           type=int,   help='Number of workers for pytorch dataloader.')
+parser.add_argument('--bs',                default=112 ,        type=int,   help='Mini-Batchsize to use.')
+parser.add_argument('--samples_per_class', default=4,           type=int,   help='Number of samples in one class drawn before choosing the next class. Set to >1 for losses other than ProxyNCA.')
+parser.add_argument('--seed',              default=23,           type=int,   help='Random seed for reproducibility.')
+parser.add_argument('--scheduler',         default='step',      type=str,   help='Type of learning rate scheduling. Currently: step & exp.')
+parser.add_argument('--gamma',             default=0.3,         type=float, help='Learning rate reduction after tau epochs.')
+parser.add_argument('--decay',             default=0.0004,      type=float, help='Weight decay for optimizer.')
+parser.add_argument('--tau',               default=[10000],nargs='+',type=int,help='Stepsize before reducing learning rate.')
+
+### Class Embedding Settings
+parser.add_argument('--classembed',         default=128,          type=int,   help='Embedding Dimension for Class Embedding.')
+parser.add_argument('--class_loss',         default='marginloss', type=str,   help='Choose between TripletLoss, ProxyNCA, ...')
+parser.add_argument('--class_sampling',     default='distance',   type=str,   help='For triplet-based losses: Modes of Sampling: random, semihard, distance.')
+# proxyNCA
+parser.add_argument('--class_proxy_lr',     default=0.00001,      type=float, help='PROXYNCA: Learning Rate for Proxies in ProxyNCALoss.')
+# margin loss
+parser.add_argument('--class_margin',       default=0.2,          type=float, help='TRIPLET, MARGIN: Margin for Triplet Loss')
+parser.add_argument('--class_beta_lr',      default=0.0005,       type=float, help='MARGIN: Learning Rate for class margin parameters in MarginLoss')
+parser.add_argument('--class_beta',         default=1.2,          type=float, help='MARGIN: Initial Class Margin Parameter in Margin Loss')
+parser.add_argument('--class_nu',           default=0,            type=float, help='MARGIN: Regularisation value on betas in Margin Loss.')
+parser.add_argument('--class_beta_constant',action='store_true',              help='MARGIN: Keep Beta fixed.')
+# multisimilarity loss
+parser.add_argument('--class_msim_pos_weight', default=2, type=float, help='Weighting on positive similarities.')
+parser.add_argument('--class_msim_neg_weight', default=40, type=float, help='Weighting on negative similarities.')
+parser.add_argument('--class_msim_margin', default=0.1, type=float, help='Distance margin for both positive and negative similarities.')
+parser.add_argument('--class_msim_pos_thresh', default=0.5, type=float, help='Exponential thresholding.')
+parser.add_argument('--class_msim_neg_thresh', default=0.5, type=float, help='Exponential thresholding.')
+parser.add_argument('--class_msim_base_mode', default=1, type=int, help='Exponential thresholding.')
+parser.add_argument('--class_msim_d_mode', default='cosine', type=str, help='Exponential thresholding.')
+
+### Evaluation Parameters
+parser.add_argument('--k_vals',        nargs='+', default=[1,2,4,8], type=int, help='Recall @ Values.')
+parser.add_argument('--not_spliteval', action='store_true',                    help='If set, evaluation is done with both embeddings.')
+
+### Network parameters
+parser.add_argument('--arch',           default='resnet50',  type=str,    help='Choice of architecture. Limited only to the options avail. to the pretrainedmodels-library.')
+parser.add_argument('--not_pretrained', action ='store_true',             help='If set, no pretraining is used for initialization.')
+parser.add_argument('--shared_norm',   action='store_true',             help='If set, no weights are saved during training.')
+
+### Setup Parameters
+parser.add_argument('--log_online',   action='store_true',             help='If set, no weights are saved during training.')
+parser.add_argument('--group',     default='default',          type=str,   help='Appendix to save folder name if any special information is to be included. Will also override the time appendix.')
+parser.add_argument('--project',     default='default',          type=str,   help='Appendix to save folder name if any special information is to be included. Will also override the time appendix.')
+parser.add_argument('--wandb_key', default='8388187e7c47589ca2875e4007015c7536aede7f', type=str, help='Options are currently: wandb & comet')
+
+parser.add_argument('--gpu',          default=0,           type=int,   help='Random seed for reproducibility.')
+parser.add_argument('--no_weights',   action='store_true',             help='If set, no weights are saved during training.')
+parser.add_argument('--savename',     default='',          type=str,   help='Appendix to save folder name if any special information is to be included. Will also override the time appendix.')
+
+parser.add_argument('--freq_eval_res',     default=1,    type=int,   help='Embedding Dimension for IntraClass Embedding.')
+parser.add_argument('--freq_eval_trainvalset',     default=999,    type=int,   help='Embedding Dimension for IntraClass Embedding.')
+parser.add_argument('--freq_analyse_inter_intra_dist',     default=999,    type=int,   help='Embedding Dimension for IntraClass Embedding.')
+parser.add_argument('--freq_tsne',     default=999,    type=int,   help='Embedding Dimension for IntraClass Embedding.')
+
+### Paths to datasets and storage folder
+parser.add_argument('--source_path',  default='/export/home/karoth/Datasets', type=str,         help='Path to folder containing the dataset folders.')
+parser.add_argument('--save_path',    default=os.getcwd()+'/Training_Results', type=str, help='Where to save everything.')
+
+### Read in parameters
+opt = parser.parse_args()
 
 
-class opt_class(object):
+# class opt_class(object):
+#
+#     def __init__(self):
+#         self.dataset = 'cars196' # cars196   cub200
+#         self.lr = 0.00001
+#         self.n_epochs = 150
+#         self.kernels = 8
+#         self.bs = 128
+#         self.samples_per_class = 4
+#         self.seed = 23
+#         self.scheduler = 'step'
+#         self.gamma = 0.3
+#         self.decay = 0.0004
+#         self.tau = [70, 90] # [70, 90, 120]    [55, 80]
+#         self.classembed = 128
+#         self.class_loss = 'marginloss'
+#         self.class_sampling = 'distance'
+#         self.class_proxy_lr = 0.00001
+#         self.class_margin = 0.2
+#         self.class_beta_lr = 0.0005
+#         self.class_beta_constant = False
+#         self.class_beta = 1.2
+#         self.class_nu = 0
+#         self.use_super = False
+#         self.not_pretrained = False
+#         self.not_spliteval = False
+#         self.k_vals = [1,2,4,8]
+#         self.arch = 'resnet50'
+#         self.no_weights = False
+#         self.source_path = '/export/home/karoth/Datasets'
+#
+#         self.save_path = os.getcwd()+'/Training_Results'
+#         self.freq_eval_res = 1
+#         self.freq_eval_trainvalset = 25
+#         self.freq_tsne = 999
+#         self.freq_analyse_inter_intra_dist = 999
+#
+#         self.gpu = 3
+#         self.savename = 'cars196_margin_baseline' # 'baseline_cars_marginloss'
+#
+# opt = opt_class()
 
-    def __init__(self):
-        self.dataset = 'cars196' # cars196   cub200
-        self.lr = 0.00001
-        self.n_epochs = 150
-        self.kernels = 8
-        self.bs = 128
-        self.samples_per_class = 4
-        self.seed = 23
-        self.scheduler = 'step'
-        self.gamma = 0.3
-        self.decay = 0.0004
-        self.tau = [70, 90] # [70, 90, 120]    [55, 80]
-        self.classembed = 128
-        self.class_loss = 'marginloss'
-        self.class_sampling = 'distance'
-        self.class_proxy_lr = 0.00001
-        self.class_margin = 0.2
-        self.class_beta_lr = 0.0005
-        self.class_beta_constant = False
-        self.class_beta = 1.2
-        self.class_nu = 0
-        self.use_super = False
-        self.not_pretrained = False
-        self.not_spliteval = False
-        self.k_vals = [1,2,4,8]
-        self.arch = 'resnet50'
-        self.no_weights = False
-        self.source_path = '/export/home/karoth/Datasets'
-
-        self.save_path = os.getcwd()+'/Training_Results'
-        self.freq_eval_res = 1
-        self.freq_eval_trainvalset = 25
-        self.freq_tsne = 999
-        self.freq_analyse_inter_intra_dist = 999
-
-        self.gpu = 3
-        self.savename = 'cars196_margin_baseline' # 'baseline_cars_marginloss'
-
-
-opt = opt_class()
 opt.embed_dim = opt.classembed
+
+### If wandb-logging is turned on, initialize the wandb-run here:
+if opt.log_online:
+    import wandb
+    _ = os.system('wandb login {}'.format(opt.wandb_key))
+    os.environ['WANDB_API_KEY'] = opt.wandb_key
+    opt.unique_run_id = wandb.util.generate_id()
+    # wandb.init(id=opt.unique_run_id, resume='allow', project=opt.project, group=opt.group, name=opt.savename, dir=opt.source_path)
+    wandb.init(id=opt.unique_run_id, resume='allow', project=opt.project, group=opt.group, name=opt.savename, dir=opt.save_path)
+    wandb.config.update(opt)
+    # wandb.config.update(opt, allow_val_change=True)
 
 """============================================================================"""
 opt.source_path += '/'+opt.dataset
@@ -267,6 +276,7 @@ loss_pars = argparse.Namespace()
 
 loss_pars.nu, loss_pars.beta, loss_pars.beta_lr, loss_pars.beta_constant, loss_pars.embed_dim   = opt.class_nu, opt.class_beta, opt.class_beta_lr, opt.class_beta_constant, opt.embed_dim
 loss_pars.margin, loss_pars.loss, loss_pars.sampling, loss_pars.num_classes, loss_pars.proxy_lr = opt.class_margin, opt.class_loss, opt.class_sampling, opt.num_classes, opt.class_proxy_lr
+loss_pars.class_msim_pos_weight, loss_pars.class_msim_neg_weight, loss_pars.class_msim_margin, loss_pars.class_msim_pos_thresh, loss_pars.class_msim_neg_thresh, loss_pars.class_msim_d_mode, loss_pars.class_msim_base_mode = opt.class_msim_pos_weight, opt.class_msim_neg_weight, opt.class_msim_margin, opt.class_msim_pos_thresh, opt.class_msim_neg_thresh, opt.class_msim_d_mode, opt.class_msim_base_mode
 class_criterion, to_optim = losses.loss_select(opt.class_loss, loss_pars, to_optim)
 
 _ = class_criterion.to(opt.device)
@@ -318,6 +328,8 @@ def train_one_epoch(train_dataloader, model, optimizer, class_criterion, opt, pr
     # update logging
     CSV_log_train.log([epoch, np.mean(loss_collect_class), np.round(time.time()-start,4)])
     progress_saver['Train Loss'].append(np.mean(loss_collect_class))
+    if opt.log_online:
+        wandb.log({f'loss (class)': np.mean(loss_collect_class)}, step=epoch)
 
 """============================================================================"""
 #################### EVALUATION PROTOCOLS ############################
@@ -331,7 +343,10 @@ def evaluate_standard(val_dataloader, model, optimizer, opt, progress_saver, epo
 
             # eval class embedding
             NMI, recall_at_ks, feature_coll, image_paths, mean_intra_dist, mean_inter_dist = aux.eval_metrics(model, val_dataloader, opt.device, spliteval=opt.spliteval, epoch=epoch, k_vals = opt.k_vals, opt=opt, embed_type='class')
-
+            if opt.log_online:
+                wandb.log({f'nmi (class, {data_type})': NMI}, step=epoch)
+                for i, recall in enumerate(recall_at_ks):
+                    wandb.log({f'e_recall@{opt.k_vals[i]} (class, {data_type})': recall}, step=epoch)
 
         # log eval class embedding
         if data_type == 'val':
@@ -346,6 +361,9 @@ def evaluate_standard(val_dataloader, model, optimizer, opt, progress_saver, epo
                     aux.recover_closest(feature_coll, image_paths, opt.save_path + '/best_test_recovered.png')
                 else:
                     aux.recover_closest_inshop(feature_coll, image_paths, opt.save_path + '/best_test_recovered.png')
+
+            if opt.log_online:
+                wandb.log({f'best_recall@1 (class)': best_recall_score_class}, step=epoch)
 
             CSV_log_val.log([epoch, NMI, np.sum(recall_at_ks)] + recall_at_ks + [np.round(time.time()-start)])
             progress_saver['Val NMI'].append(NMI)

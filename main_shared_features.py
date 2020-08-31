@@ -112,8 +112,6 @@ parser.add_argument('--save_path',    default=os.getcwd()+'/Training_Results', t
 ### Read in parameters
 opt = parser.parse_args()
 
-print(opt.tau)
-
 # class opt_class(object):
 #
 #     def __init__(self):
